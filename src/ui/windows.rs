@@ -1,7 +1,7 @@
 use std::sync::{Arc, mpsc::Sender};
 
 use eframe::{Frame, NativeOptions, egui};
-use egui::{Align, IconData, Layout, MenuBar, ViewportBuilder, menu};
+use egui::{Align, Align2, IconData, Layout, MenuBar, Order, ViewportBuilder, Window, menu};
 use rusqlite::Connection;
 
 use crate::agent;
@@ -41,6 +41,7 @@ pub fn run_ui(agent_tx: Sender<agent::AgentCommand>) {
             Ok(Box::new(MyApp {
                 agent_tx,
                 tasks: agent::tasks::get_all_tasks(&conn).unwrap(),
+                show_new_task_dialog: false,
             }))
         }),
     )
@@ -50,6 +51,7 @@ pub fn run_ui(agent_tx: Sender<agent::AgentCommand>) {
 struct MyApp {
     agent_tx: Sender<agent::AgentCommand>,
     tasks: Vec<agent::tasks::Task>,
+    show_new_task_dialog: bool,
 }
 
 impl eframe::App for MyApp {
@@ -63,7 +65,7 @@ impl eframe::App for MyApp {
                 });
                 ui.with_layout(Layout::right_to_left(Align::Max), |ui| {
                     if ui.button("Add Task").clicked() {
-
+                        self.show_new_task_dialog = true;
                     }
                 });
             });
@@ -94,5 +96,38 @@ impl eframe::App for MyApp {
                 }
             });
         });
+
+        if self.show_new_task_dialog {
+            let mut new_task = agent::tasks::Task {
+                id: "".to_string(),
+                name: "".to_string(),
+                description: "".to_string(),
+            };
+
+            Window::new("New Task")
+                .collapsible(false)
+                .fixed_size([400.0, 100.0])
+                .resizable(false)
+                .anchor(Align2::CENTER_CENTER, [0.0, 0.0])
+                .order(Order::Foreground)
+                .show(ctx, |ui| {
+                    ui.label("Name:");
+                    ui.text_edit_singleline(&mut new_task.name);
+                    ui.label("Description:");
+                    ui.text_edit_multiline(&mut new_task.description);
+                    ui.separator();
+                    ui.horizontal(|ui| {
+                        ui.with_layout(Layout::right_to_left(Align::Max), |ui| {
+                            if ui.button("Cancel").clicked() {
+                                self.show_new_task_dialog = false;
+                            }
+
+                            if ui.button("Add").clicked() {
+                                self.show_new_task_dialog = false;
+                            }
+                        });
+                    });
+                });
+        }
     }
 }
