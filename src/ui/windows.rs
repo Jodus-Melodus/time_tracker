@@ -1,6 +1,6 @@
 use std::sync::{Arc, mpsc::Sender};
 
-use eframe::{Frame, NativeOptions, egui};
+use eframe::{NativeOptions, egui};
 use egui::{Align, Align2, IconData, Layout, MenuBar, Order, ViewportBuilder, Window, menu};
 use rusqlite::Connection;
 
@@ -22,7 +22,7 @@ fn load_icon(path: &str) -> IconData {
 }
 
 pub fn run_ui(agent_tx: Sender<agent::AgentCommand>) {
-    let conn = Connection::open("data/sessions.db").unwrap();
+    let db_connection = Connection::open("data/sessions.db").unwrap();
 
     let icon = load_icon("icon.ico");
 
@@ -40,8 +40,14 @@ pub fn run_ui(agent_tx: Sender<agent::AgentCommand>) {
         Box::new(|_cc| {
             Ok(Box::new(MyApp {
                 agent_tx,
-                tasks: agent::tasks::get_all_tasks(&conn).unwrap(),
+                tasks: agent::tasks::get_all_tasks(&db_connection).unwrap(),
                 show_new_task_dialog: false,
+                new_task: agent::tasks::Task {
+                    id: 0,
+                    name: "".to_string(),
+                    description: "".to_string(),
+                },
+                db_connection,
             }))
         }),
     )
@@ -52,6 +58,8 @@ struct MyApp {
     agent_tx: Sender<agent::AgentCommand>,
     tasks: Vec<agent::tasks::Task>,
     show_new_task_dialog: bool,
+    new_task: agent::tasks::Task,
+    db_connection: Connection,
 }
 
 impl eframe::App for MyApp {
@@ -98,12 +106,6 @@ impl eframe::App for MyApp {
         });
 
         if self.show_new_task_dialog {
-            let mut new_task = agent::tasks::Task {
-                id: "".to_string(),
-                name: "".to_string(),
-                description: "".to_string(),
-            };
-
             Window::new("New Task")
                 .collapsible(false)
                 .fixed_size([400.0, 100.0])
@@ -112,9 +114,9 @@ impl eframe::App for MyApp {
                 .order(Order::Foreground)
                 .show(ctx, |ui| {
                     ui.label("Name:");
-                    ui.text_edit_singleline(&mut new_task.name);
+                    ui.text_edit_singleline(&mut self.new_task.name);
                     ui.label("Description:");
-                    ui.text_edit_multiline(&mut new_task.description);
+                    ui.text_edit_multiline(&mut self.new_task.description);
                     ui.separator();
                     ui.horizontal(|ui| {
                         ui.with_layout(Layout::right_to_left(Align::Max), |ui| {
@@ -123,11 +125,59 @@ impl eframe::App for MyApp {
                             }
 
                             if ui.button("Add").clicked() {
+                                match agent::tasks::add_new_task(
+                                    &self.db_connection,
+                                    &self.new_task,
+                                ) {
+                                    Ok(_) => {
+                                        Window::new("Successful")
+                                            .collapsible(false)
+                                            .fixed_size([200.0, 50.0])
+                                            .resizable(false)
+                                            .order(Order::Foreground)
+                                            .anchor(Align2::CENTER_CENTER, [0.0, 0.0])
+                                            .show(ctx, |ui| {
+                                                ui.label("Successfully added the new task");
+                                                ui.separator();
+                                                ui.horizontal(|ui| {
+                                                    ui.with_layout(
+                                                        Layout::right_to_left(Align::Max),
+                                                        |ui| ui.button("OK"),
+                                                    );
+                                                })
+                                            });
+                                        self.tasks = agent::tasks::get_all_tasks(&self.db_connection).unwrap();
+                                    }
+                                    Err(e) => {
+                                        Window::new("Error")
+                                            .collapsible(false)
+                                            .fixed_size([200.0, 50.0])
+                                            .resizable(false)
+                                            .order(Order::Foreground)
+                                            .anchor(Align2::CENTER_CENTER, [0.0, 0.0])
+                                            .show(ctx, |ui| {
+                                                ui.label(format!("{:?}", e));
+                                                ui.separator();
+                                                ui.horizontal(|ui| {
+                                                    ui.with_layout(
+                                                        Layout::right_to_left(Align::Max),
+                                                        |ui| ui.button("OK"),
+                                                    );
+                                                })
+                                            });
+                                    }
+                                }
                                 self.show_new_task_dialog = false;
                             }
                         });
                     });
                 });
+        } else {
+            self.new_task = agent::tasks::Task {
+                id: 0,
+                name: "".to_string(),
+                description: "".to_string(),
+            };
         }
     }
 }

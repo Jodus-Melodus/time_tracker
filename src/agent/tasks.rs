@@ -1,7 +1,7 @@
 use rusqlite::{Connection, Result};
 
 pub struct Task {
-    pub id: String,
+    pub id: isize,
     pub name: String,
     pub description: String,
 }
@@ -21,4 +21,11 @@ pub fn get_all_tasks(conn: &Connection) -> Result<Vec<Task>> {
         tasks.push(task?);
     }
     Ok(tasks)
+}
+
+pub fn add_new_task(conn: &Connection, task: &Task) -> Result<usize> {
+    conn.execute(
+        "INSERT INTO tasks (name, description) VALUES (?1, ?2)",
+        (&task.name, &task.description),
+    )
 }
