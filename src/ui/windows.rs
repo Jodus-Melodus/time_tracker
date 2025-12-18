@@ -5,9 +5,8 @@ use std::sync::{
 
 use eframe::{NativeOptions, egui};
 use egui::{
-    Align, Align2, CentralPanel, Color32, Context, IconData, Layout, MenuBar, Order,
-    ScrollArea, Slider, TopBottomPanel, ViewportBuilder, ViewportCommand, Window,
-    panel::TopBottomSide,
+    Align, Align2, CentralPanel, Color32, Context, IconData, Layout, MenuBar, Order, ScrollArea,
+    Slider, TopBottomPanel, ViewportBuilder, ViewportCommand, Window, panel::TopBottomSide,
 };
 use rusqlite::Connection;
 
@@ -150,9 +149,9 @@ impl eframe::App for MyApp {
                                     ui.with_layout(Layout::right_to_left(Align::Max), |ui| {
                                         if ui.button("Start").clicked() {
                                             self.agent_tx
-                                                .send(agent::AgentCommand::StartTask(
-                                                    task.name.clone(),
-                                                ))
+                                                .send(agent::AgentCommand::StartTask {
+                                                    name: task.name.clone(),
+                                                })
                                                 .unwrap();
                                         }
                                         if ui.button("Stop").clicked() {
@@ -225,19 +224,12 @@ impl eframe::App for MyApp {
                                 ) {
                                     Ok(_) => {
                                         println!("Add new task");
-                                        // display_message(
-                                        //     ctx,
-                                        //     "Successful",
-                                        //     "Successfully added new task",
-                                        //     &["OK"],
-                                        // );
                                         self.tasks =
                                             agent::tasks::get_all_tasks(&self.db_connection)
                                                 .unwrap();
                                     }
                                     Err(e) => {
                                         println!("Failed to add task: {}", e);
-                                        // display_message(ctx, "Error", &format!("{:?}", e), &[]);
                                     }
                                 }
                                 self.show_new_task_dialog = false;
@@ -249,29 +241,4 @@ impl eframe::App for MyApp {
             self.new_task = agent::tasks::Task::default();
         }
     }
-}
-
-fn display_message(ctx: &Context, title: &str, message: &str, buttons: &[&str]) -> isize {
-    Window::new(title)
-        .collapsible(false)
-        .fixed_size([200.0, 50.0])
-        .resizable(false)
-        .order(Order::Foreground)
-        .anchor(Align2::CENTER_CENTER, [0.0, 0.0])
-        .show(ctx, |ui| {
-            ui.label(message);
-            ui.separator();
-            ui.horizontal(|ui| {
-                ui.with_layout(Layout::right_to_left(Align::Max), |ui| {
-                    for (i, button) in buttons.iter().enumerate() {
-                        if ui.button(*button).clicked() {
-                            return i as isize;
-                        }
-                    }
-
-                    return -1;
-                });
-            })
-        });
-    -1
 }
