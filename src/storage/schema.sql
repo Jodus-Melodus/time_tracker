@@ -1,19 +1,11 @@
 CREATE TABLE IF NOT EXISTS tasks (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    -- The name of the task
     name TEXT NOT NULL DEFAULT '',
+    -- Short description
     description TEXT NOT NULL DEFAULT '',
-    priority INTEGER NOT NULL DEFAULT 0
-);
-
-CREATE TABLE IF NOT EXISTS sessions (
-    id TEXT PRIMARY KEY,
-    task_id INTEGER NOT NULL,
-    start_utc TEXT NOT NULL,
-    end_utc TEXT,
-    duration_sec INTEGER,
-    synced INTEGER NOT NULL DEFAULT 0,
-
-    FOREIGN KEY (task_id)
-        REFERENCES tasks(id)
-        ON DELETE CASCADE
+    -- Priority of task [Low, Medium, High]
+    priority INTEGER NOT NULL DEFAULT 0,
+    -- 0 = Not currently working, 1 = currently working on the task
+    in_progress INTEGER NOT NULL DEFAULT 0
 );

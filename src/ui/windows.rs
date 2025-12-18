@@ -147,17 +147,17 @@ impl eframe::App for MyApp {
                                     });
 
                                     ui.with_layout(Layout::right_to_left(Align::Max), |ui| {
-                                        if ui.button("Start").clicked() {
-                                            self.agent_tx
-                                                .send(agent::AgentCommand::StartTask {
-                                                    name: task.name.clone(),
-                                                })
-                                                .unwrap();
-                                        }
-                                        if ui.button("Stop").clicked() {
-                                            self.agent_tx
-                                                .send(agent::AgentCommand::StopTask)
-                                                .unwrap();
+                                        match task.in_progress {
+                                            true => {
+                                                if ui.button("Stop").clicked() {
+                                                    task.in_progress = !task.in_progress;
+                                                }
+                                            }
+                                            false => {
+                                                if ui.button("Start").clicked() {
+                                                    task.in_progress = !task.in_progress;
+                                                }
+                                            }
                                         }
                                     });
                                 });
