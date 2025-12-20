@@ -1,7 +1,8 @@
 use rusqlite::{Connection, Result};
 
+#[derive(Clone)]
 pub struct Task {
-    pub t_id: isize,
+    pub t_id: i64,
     pub t_name: String,
     pub t_description: String,
     pub t_priority: usize,
@@ -33,18 +34,14 @@ pub fn add_new_task(conn: &Connection, task: &Task) -> Result<usize> {
             (t_name, t_description, t_priority)
             VALUES
             (?1, ?2, ?3)",
-        (
-            &task.t_name,
-            &task.t_description,
-            &task.t_priority,
-        ),
+        (&task.t_name, &task.t_description, &task.t_priority),
     )
 }
 
 impl Default for Task {
     fn default() -> Self {
         Task {
-            t_id: 0,
+            t_id: 1,
             t_name: "".to_string(),
             t_description: "".to_string(),
             t_priority: 0,

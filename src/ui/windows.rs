@@ -8,7 +8,6 @@ use egui::{
     Align, Align2, CentralPanel, Color32, Context, IconData, Layout, MenuBar, Order, ScrollArea,
     Slider, TopBottomPanel, ViewportBuilder, ViewportCommand, Window, panel::TopBottomSide,
 };
-use rusqlite::Connection;
 
 use crate::{agent, app};
 
@@ -27,8 +26,7 @@ fn load_icon(path: &str) -> IconData {
     }
 }
 
-pub fn run_ui(agent_tx: Sender<agent::AgentCommand>, agent_rx: Receiver<agent::AgentCommand>) {
-    let db_connection = Connection::open("data/sessions.db").unwrap();
+pub fn run_ui(agent_tx: Sender<agent::AgentCommand>, app_rx: Receiver<app::AppCommand>) {
     let icon = load_icon("icon.ico");
     let mut options = NativeOptions {
         viewport: ViewportBuilder::default()
@@ -44,11 +42,12 @@ pub fn run_ui(agent_tx: Sender<agent::AgentCommand>, agent_rx: Receiver<agent::A
         Box::new(|_cc| {
             Ok(Box::new(MyApp {
                 agent_tx,
-                agent_rx,
-                tasks: agent::tasks::get_all_tasks(&db_connection).unwrap(),
-                show_new_task_dialog: false,
+                app_rx,
                 new_task: agent::tasks::Task::default(),
-                db_connection,
+                task_state: false,
+                session_comment: "".to_string(),
+                tasks: Vec::new(),
+                show_new_task_dialog: false,
                 last_user_activity_time_stamp: chrono::Utc::now(),
                 user_state: app::types::UserState::Active,
             }))
@@ -59,24 +58,23 @@ pub fn run_ui(agent_tx: Sender<agent::AgentCommand>, agent_rx: Receiver<agent::A
 
 struct MyApp {
     agent_tx: Sender<agent::AgentCommand>,
-    agent_rx: Receiver<agent::AgentCommand>,
+    app_rx: Receiver<app::AppCommand>,
+    new_task: agent::tasks::Task,
+    task_state: bool,
+    session_comment: String,
+
     tasks: Vec<agent::tasks::Task>,
     show_new_task_dialog: bool,
-    new_task: agent::tasks::Task,
-    db_connection: Connection,
     user_state: app::types::UserState,
     last_user_activity_time_stamp: chrono::DateTime<chrono::Utc>,
 }
 
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
-        while let Ok(command) = self.agent_rx.try_recv() {
-            match command {
-                agent::AgentCommand::UserActive { time_stamp } => {
-                    self.user_state = app::types::UserState::Active;
-                    self.last_user_activity_time_stamp = time_stamp;
-                }
-                _ => {}
+        while let Ok(event) = self.app_rx.try_recv() {
+            match event {
+                app::AppCommand::TaskList { task_list } => self.tasks = task_list,
+                app::AppCommand::ProgressState { state } => self.task_state = state,
             }
         }
 
@@ -145,26 +143,29 @@ impl eframe::App for MyApp {
                                     });
 
                                     ui.with_layout(Layout::right_to_left(Align::Max), |ui| {
-                                        // match task.in_progress {
-                                        //     true => {
-                                        //         if ui.button("Stop").clicked() {
-                                        //             self.agent_tx
-                                        //                 .send(agent::AgentCommand::StopTask)
-                                        //                 .unwrap();
-                                        //         }
-                                        //     }
-                                        //     false => {
-                                        //         if ui.button("Start").clicked() {
-                                        //             self.agent_tx
-                                        //                 .send(agent::AgentCommand::StartTask {
-                                        //                     name: task.t_name.clone(),
-                                        //                 })
-                                        //                 .unwrap();
-                                        //         }
-                                        //     }
-                                        // }
-
-                                        // TODO: fix start stop
+                                        self.agent_tx
+                                            .send(agent::AgentCommand::RequestTaskState)
+                                            .unwrap();
+                                        match self.task_state {
+                                            true => {
+                                                if ui.button("Stop").clicked() {
+                                                    self.agent_tx
+                                                        .send(agent::AgentCommand::EndSession {
+                                                            comment: self.session_comment.clone(),
+                                                        })
+                                                        .unwrap();
+                                                }
+                                            }
+                                            false => {
+                                                if ui.button("Start").clicked() {
+                                                    self.agent_tx
+                                                        .send(agent::AgentCommand::StartSession {
+                                                            id: task.t_id,
+                                                        })
+                                                        .unwrap();
+                                                }
+                                            }
+                                        }
                                     });
                                 });
                             });
@@ -229,17 +230,15 @@ impl MyApp {
                         }
 
                         if ui.button("Add").clicked() {
-                            match agent::tasks::add_new_task(&self.db_connection, &self.new_task) {
-                                Ok(_) => {
-                                    println!("Add new task");
-                                    self.tasks =
-                                        agent::tasks::get_all_tasks(&self.db_connection).unwrap();
-                                }
-                                Err(e) => {
-                                    println!("Failed to add task: {}", e);
-                                }
-                            }
+                            self.agent_tx
+                                .send(agent::AgentCommand::AddTask {
+                                    task: self.new_task.clone(),
+                                })
+                                .unwrap();
                             self.show_new_task_dialog = false;
+                            self.agent_tx
+                                .send(agent::AgentCommand::RequestTaskList)
+                                .unwrap();
                         }
                     });
                 });

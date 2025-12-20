@@ -5,23 +5,21 @@ use crate::{agent, app, storage, ui};
 pub fn start() {
     // Ensure local database is created
     std::fs::create_dir_all("data").unwrap();
-    let _conn = storage::sqlite::init_db().unwrap();
+    let db_connection = storage::sqlite::init_db().unwrap();
     println!("SQLite databse initialized!");
 
-    let _app_state = app::types::AppState {
-        _tray_icon: ui::tray::init_tray_icon(),
-    };
-    
+    let app_state = app::types::AppState::new(db_connection);
     let (agent_tx, agent_rx) = mpsc::channel();
-    
+    let (app_tx, app_rx) = mpsc::channel();
+
     // Start local agent to continuesly get events
     agent::input::start_input_listener(agent_tx.clone());
     println!("Input listener running. Press Ctrl+C to exit.");
-    // agent::start_agent(agent_rx);
-        
+    agent::start_agent(agent_rx, app_tx, app_state);
+
     // Initialize tray icon
     ui::tray::start_tray_icon();
 
     // Open ui
-    ui::windows::run_ui(agent_tx, agent_rx);
+    ui::windows::run_ui(agent_tx, app_rx);
 }
