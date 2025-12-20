@@ -1,6 +1,6 @@
 use std::sync::mpsc;
 
-use crate::{agent, app::types::AppState, storage, ui};
+use crate::{agent, app, storage, ui};
 
 pub fn start() {
     // Ensure local database is created
@@ -8,14 +8,13 @@ pub fn start() {
     let _conn = storage::sqlite::init_db().unwrap();
     println!("SQLite databse initialized!");
 
-    // Start local agent to continuesly get events
-    
-    let _app_state = AppState {
+    let _app_state = app::types::AppState {
         _tray_icon: ui::tray::init_tray_icon(),
     };
     
     let (agent_tx, agent_rx) = mpsc::channel();
     
+    // Start local agent to continuesly get events
     agent::input::start_input_listener(agent_tx.clone());
     println!("Input listener running. Press Ctrl+C to exit.");
     // agent::start_agent(agent_rx);

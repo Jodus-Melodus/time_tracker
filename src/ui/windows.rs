@@ -13,7 +13,7 @@ use rusqlite::Connection;
 use crate::{agent, app};
 
 fn load_icon(path: &str) -> IconData {
-    let (icon_rgba, icon_width, icon_height) = {
+    let (rgba, width, height) = {
         let image = image::open(path)
             .expect("Failed to open icon path")
             .into_rgba8();
@@ -21,25 +21,23 @@ fn load_icon(path: &str) -> IconData {
         (image.into_raw(), width, height)
     };
     IconData {
-        rgba: icon_rgba,
-        width: icon_width,
-        height: icon_height,
+        rgba,
+        width,
+        height,
     }
 }
 
 pub fn run_ui(agent_tx: Sender<agent::AgentCommand>, agent_rx: Receiver<agent::AgentCommand>) {
     let db_connection = Connection::open("data/sessions.db").unwrap();
-
     let icon = load_icon("icon.ico");
-
     let mut options = NativeOptions {
         viewport: ViewportBuilder::default()
             .with_min_inner_size([250.0, 500.0])
             .with_max_inner_size([500.0, 750.0]),
         ..Default::default()
     };
-    options.viewport.icon = Some(Arc::new(icon));
 
+    options.viewport.icon = Some(Arc::new(icon));
     eframe::run_native(
         "Time Tracker",
         options,
@@ -150,12 +148,18 @@ impl eframe::App for MyApp {
                                         match task.in_progress {
                                             true => {
                                                 if ui.button("Stop").clicked() {
-                                                    task.in_progress = !task.in_progress;
+                                                    self.agent_tx
+                                                        .send(agent::AgentCommand::StopTask)
+                                                        .unwrap();
                                                 }
                                             }
                                             false => {
                                                 if ui.button("Start").clicked() {
-                                                    task.in_progress = !task.in_progress;
+                                                    self.agent_tx
+                                                        .send(agent::AgentCommand::StartTask {
+                                                            name: task.name.clone(),
+                                                        })
+                                                        .unwrap();
                                                 }
                                             }
                                         }
@@ -171,74 +175,76 @@ impl eframe::App for MyApp {
         TopBottomPanel::new(TopBottomSide::Bottom, "Status Bar").show(ctx, |ui| {
             ui.horizontal(|ui| {
                 ui.with_layout(Layout::left_to_right(egui::Align::Min), |ui| {
-                    ui.colored_label(
-                        match self.user_state {
-                            app::types::UserState::Active => Color32::DARK_GREEN,
-                            app::types::UserState::Idle => Color32::DARK_GRAY,
-                        },
-                        match self.user_state {
-                            app::types::UserState::Active => "Active",
-                            app::types::UserState::Idle => "Idle",
-                        },
-                    );
+                    match self.user_state {
+                        app::types::UserState::Active => {
+                            ui.colored_label(Color32::DARK_GREEN, "Active")
+                        }
+                        app::types::UserState::Idle => ui.colored_label(Color32::DARK_GRAY, "Idle"),
+                    };
                 });
                 ui.with_layout(Layout::right_to_left(egui::Align::Max), |_ui| {});
             });
         });
 
         if self.show_new_task_dialog {
-            Window::new("New Task")
-                .collapsible(false)
-                .fixed_size([400.0, 100.0])
-                .resizable(false)
-                .anchor(Align2::CENTER_CENTER, [0.0, 0.0])
-                .order(Order::Foreground)
-                .show(ctx, |ui| {
-                    ui.label("Name:");
-                    ui.text_edit_singleline(&mut self.new_task.name);
-                    ui.label("Description:");
-                    ui.text_edit_multiline(&mut self.new_task.description);
-
-                    ui.horizontal(|ui| {
-                        ui.label("Priority");
-                        let level = self.new_task.priority;
-                        ui.add(
-                            Slider::new(&mut self.new_task.priority, 0..=2)
-                                .step_by(0.33)
-                                .text(agent::tasks::PRIORITY_LEVELS[level])
-                                .show_value(false),
-                        );
-                    });
-
-                    ui.separator();
-                    ui.horizontal(|ui| {
-                        ui.with_layout(Layout::right_to_left(Align::Max), |ui| {
-                            if ui.button("Cancel").clicked() {
-                                self.show_new_task_dialog = false;
-                            }
-
-                            if ui.button("Add").clicked() {
-                                match agent::tasks::add_new_task(
-                                    &self.db_connection,
-                                    &self.new_task,
-                                ) {
-                                    Ok(_) => {
-                                        println!("Add new task");
-                                        self.tasks =
-                                            agent::tasks::get_all_tasks(&self.db_connection)
-                                                .unwrap();
-                                    }
-                                    Err(e) => {
-                                        println!("Failed to add task: {}", e);
-                                    }
-                                }
-                                self.show_new_task_dialog = false;
-                            }
-                        });
-                    });
-                });
+            self.new_task_dialog(ctx);
         } else {
             self.new_task = agent::tasks::Task::default();
         }
+    }
+}
+
+impl MyApp {
+    fn new_task_dialog(&mut self, ctx: &Context) {
+        Window::new("New Task")
+            .collapsible(false)
+            .fixed_size([400.0, 100.0])
+            .resizable(false)
+            .anchor(Align2::CENTER_CENTER, [0.0, 0.0])
+            .order(Order::Foreground)
+            .show(ctx, |ui| {
+                ui.label("Name:");
+                ui.text_edit_singleline(&mut self.new_task.name);
+                ui.label("Description:");
+                ui.text_edit_multiline(&mut self.new_task.description);
+
+                ui.horizontal(|ui| {
+                    ui.label("Priority");
+                    let level = self.new_task.priority;
+                    ui.add(
+                        Slider::new(&mut self.new_task.priority, 0..=2)
+                            .step_by(0.33)
+                            .text(agent::tasks::PRIORITY_LEVELS[level])
+                            .show_value(false),
+                    );
+                });
+
+                ui.separator();
+                ui.horizontal(|ui| {
+                    ui.with_layout(Layout::right_to_left(Align::Max), |ui| {
+                        if ui.button("Cancel").clicked() {
+                            self.show_new_task_dialog = false;
+                        }
+
+                        if ui.button("Add").clicked() {
+                            match agent::tasks::add_new_task(
+                                &self.db_connection,
+                                &self.new_task,
+                            ) {
+                                Ok(_) => {
+                                    println!("Add new task");
+                                    self.tasks =
+                                        agent::tasks::get_all_tasks(&self.db_connection)
+                                            .unwrap();
+                                }
+                                Err(e) => {
+                                    println!("Failed to add task: {}", e);
+                                }
+                            }
+                            self.show_new_task_dialog = false;
+                        }
+                    });
+                });
+            });
     }
 }
