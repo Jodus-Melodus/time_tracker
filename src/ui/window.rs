@@ -5,8 +5,9 @@ use std::sync::{
 
 use eframe::{NativeOptions, egui};
 use egui::{
-    Align, Align2, CentralPanel, Color32, Context, IconData, Layout, MenuBar, Order, ScrollArea,
-    Slider, TopBottomPanel, ViewportBuilder, ViewportCommand, Window, panel::TopBottomSide,
+    Align, Align2, CentralPanel, Color32, Context, CursorIcon, IconData, Layout, MenuBar, Order,
+    ScrollArea, Slider, TopBottomPanel, ViewportBuilder, ViewportCommand, Window,
+    panel::TopBottomSide,
 };
 
 use crate::{agent, ui};
@@ -93,21 +94,58 @@ impl eframe::App for MyApp {
             }
         }
 
+        // Menu bar
         TopBottomPanel::new(TopBottomSide::Top, "Menu Bar").show(ctx, |ui| {
             MenuBar::new().ui(ui, |ui| {
                 ui.menu_button("File", |ui| {
-                    if ui.button("Quit").clicked() {
+                    if ui
+                        .button("Quit")
+                        .on_hover_cursor(CursorIcon::PointingHand)
+                        .clicked()
+                    {
+                        self.agent_tx.send(agent::AgentCommand::Quit).unwrap();
                         ui.ctx().send_viewport_cmd(ViewportCommand::Close);
                     }
-                });
+                })
+                .response
+                .on_hover_cursor(CursorIcon::PointingHand);
+
                 ui.with_layout(Layout::right_to_left(Align::Max), |ui| {
-                    if ui.button("Add Task").clicked() {
+                    if ui
+                        .button("Add Task")
+                        .on_hover_cursor(CursorIcon::PointingHand)
+                        .clicked()
+                    {
                         self.show_new_task_dialog = true;
                     }
                 });
             });
         });
 
+        // Status bar
+        TopBottomPanel::new(TopBottomSide::Bottom, "Status Bar").show(ctx, |ui| {
+            ui.horizontal(|ui| {
+                ui.with_layout(Layout::left_to_right(egui::Align::Min), |ui| {
+                    match self.user_state {
+                        agent::UserState::Active => ui.colored_label(Color32::DARK_GREEN, "Active"),
+                        agent::UserState::Idle => ui.colored_label(Color32::DARK_GRAY, "Idle"),
+                    };
+                });
+                ui.with_layout(Layout::right_to_left(egui::Align::Max), |ui| {
+                    if ui
+                        .button("↻")
+                        .on_hover_cursor(CursorIcon::PointingHand)
+                        .clicked()
+                    {
+                        self.agent_tx
+                            .send(agent::AgentCommand::RequestTaskList)
+                            .unwrap();
+                    }
+                });
+            });
+        });
+
+        // Main window
         CentralPanel::default().show(ctx, |ui| {
             ui.group(|ui| {
                 ui.heading("Tasks");
@@ -148,7 +186,11 @@ impl eframe::App for MyApp {
                                             .unwrap();
                                         match self.task_state {
                                             true => {
-                                                if ui.button("Stop").clicked() {
+                                                if ui
+                                                    .button("Stop")
+                                                    .on_hover_cursor(CursorIcon::PointingHand)
+                                                    .clicked()
+                                                {
                                                     self.agent_tx
                                                         .send(agent::AgentCommand::EndSession {
                                                             comment: self.session_comment.clone(),
@@ -157,7 +199,11 @@ impl eframe::App for MyApp {
                                                 }
                                             }
                                             false => {
-                                                if ui.button("Start").clicked() {
+                                                if ui
+                                                    .button("Start")
+                                                    .on_hover_cursor(CursorIcon::PointingHand)
+                                                    .clicked()
+                                                {
                                                     self.agent_tx
                                                         .send(agent::AgentCommand::StartSession {
                                                             id: task.t_id,
@@ -172,18 +218,6 @@ impl eframe::App for MyApp {
                         });
                     }
                 });
-            });
-        });
-
-        TopBottomPanel::new(TopBottomSide::Bottom, "Status Bar").show(ctx, |ui| {
-            ui.horizontal(|ui| {
-                ui.with_layout(Layout::left_to_right(egui::Align::Min), |ui| {
-                    match self.user_state {
-                        agent::UserState::Active => ui.colored_label(Color32::DARK_GREEN, "Active"),
-                        agent::UserState::Idle => ui.colored_label(Color32::DARK_GRAY, "Idle"),
-                    };
-                });
-                ui.with_layout(Layout::right_to_left(egui::Align::Max), |_ui| {});
             });
         });
 
@@ -223,11 +257,19 @@ impl MyApp {
                 ui.separator();
                 ui.horizontal(|ui| {
                     ui.with_layout(Layout::right_to_left(Align::Max), |ui| {
-                        if ui.button("Cancel").clicked() {
+                        if ui
+                            .button("Cancel")
+                            .on_hover_cursor(CursorIcon::PointingHand)
+                            .clicked()
+                        {
                             self.show_new_task_dialog = false;
                         }
 
-                        if ui.button("Add").clicked() {
+                        if ui
+                            .button("Add")
+                            .on_hover_cursor(CursorIcon::PointingHand)
+                            .clicked()
+                        {
                             self.agent_tx
                                 .send(agent::AgentCommand::AddTask {
                                     task: self.new_task.clone(),
