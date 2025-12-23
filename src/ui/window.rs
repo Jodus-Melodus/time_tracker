@@ -75,6 +75,10 @@ impl eframe::App for MyApp {
         while let Ok(event) = self.ui_rx.try_recv() {
             match event {
                 ui::UIEvent::TaskList { task_list } => self.tasks = task_list,
+                ui::UIEvent::UserActivity { time_stamp } => {
+                    self.user_state = agent::UserState::Active;
+                    self.last_user_activity_time_stamp = time_stamp;
+                }
                 ui::UIEvent::ProgressState { state } => self.task_state = state,
             }
         }

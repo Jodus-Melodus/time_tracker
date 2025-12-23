@@ -13,12 +13,11 @@ pub fn start() {
 
     // Start local agent
     {
-        let agent_command_tx = command_tx.clone();
         thread::Builder::new()
             .name("agent-worker".to_string())
             .spawn(move || {
                 println!("Starting agent-worker thread...");
-                agent::input::start_input_listener(agent_command_tx.clone());
+                agent::input::start_input_listener(event_tx.clone());
                 agent::start_agent(command_rx, event_tx);
             })
             .expect("Failed to spawn agent-worker thread");

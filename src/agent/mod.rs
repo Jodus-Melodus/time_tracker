@@ -44,9 +44,6 @@ pub enum AgentCommand {
     EndSession {
         comment: String,
     },
-    UserActive {
-        time_stamp: chrono::DateTime<chrono::Utc>,
-    },
     AddTask {
         task: agent::tasks::Task,
     },
