@@ -9,7 +9,7 @@ use egui::{
     Slider, TopBottomPanel, ViewportBuilder, ViewportCommand, Window, panel::TopBottomSide,
 };
 
-use crate::{agent, app, ui};
+use crate::{agent, ui};
 
 fn load_icon(path: &str) -> IconData {
     let (rgba, width, height) = {
@@ -42,14 +42,14 @@ pub fn run_ui(command_tx: Sender<agent::AgentCommand>, event_rx: Receiver<ui::UI
         Box::new(|_cc| {
             Ok(Box::new(MyApp {
                 agent_tx: command_tx,
-                app_rx: event_rx,
+                ui_rx: event_rx,
                 new_task: agent::tasks::Task::default(),
                 task_state: false,
                 session_comment: "".to_string(),
                 tasks: Vec::new(),
                 show_new_task_dialog: false,
                 last_user_activity_time_stamp: chrono::Utc::now(),
-                user_state: app::types::UserState::Active,
+                user_state: agent::UserState::Active,
             }))
         }),
     )
@@ -58,20 +58,20 @@ pub fn run_ui(command_tx: Sender<agent::AgentCommand>, event_rx: Receiver<ui::UI
 
 struct MyApp {
     agent_tx: Sender<agent::AgentCommand>,
-    app_rx: Receiver<ui::UIEvent>,
+    ui_rx: Receiver<ui::UIEvent>,
     new_task: agent::tasks::Task,
     task_state: bool,
     session_comment: String,
 
     tasks: Vec<agent::tasks::Task>,
     show_new_task_dialog: bool,
-    user_state: app::types::UserState,
+    user_state: agent::UserState,
     last_user_activity_time_stamp: chrono::DateTime<chrono::Utc>,
 }
 
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
-        while let Ok(event) = self.app_rx.try_recv() {
+        while let Ok(event) = self.ui_rx.try_recv() {
             match event {
                 ui::UIEvent::TaskList { task_list } => self.tasks = task_list,
                 ui::UIEvent::ProgressState { state } => self.task_state = state,
@@ -81,9 +81,9 @@ impl eframe::App for MyApp {
         let idle_after = self.last_user_activity_time_stamp + chrono::Duration::seconds(5);
         let now = chrono::Utc::now();
 
-        if self.user_state == app::types::UserState::Active {
+        if self.user_state == agent::UserState::Active {
             if now >= idle_after {
-                self.user_state = app::types::UserState::Idle;
+                self.user_state = agent::UserState::Idle;
                 ctx.request_repaint();
             } else {
                 let remaining = idle_after - now;
@@ -179,10 +179,8 @@ impl eframe::App for MyApp {
             ui.horizontal(|ui| {
                 ui.with_layout(Layout::left_to_right(egui::Align::Min), |ui| {
                     match self.user_state {
-                        app::types::UserState::Active => {
-                            ui.colored_label(Color32::DARK_GREEN, "Active")
-                        }
-                        app::types::UserState::Idle => ui.colored_label(Color32::DARK_GRAY, "Idle"),
+                        agent::UserState::Active => ui.colored_label(Color32::DARK_GREEN, "Active"),
+                        agent::UserState::Idle => ui.colored_label(Color32::DARK_GRAY, "Idle"),
                     };
                 });
                 ui.with_layout(Layout::right_to_left(egui::Align::Max), |_ui| {});

@@ -3,11 +3,39 @@ use std::{
     time::Instant,
 };
 
-use crate::{agent, app, ui};
+use rusqlite::Connection;
+
+use crate::{agent, storage, ui};
 
 pub mod input;
 pub mod sessions;
 pub mod tasks;
+
+#[derive(PartialEq)]
+pub enum UserState {
+    Idle,
+    Active,
+}
+
+pub struct AgentState {
+    pub db_connection: Connection,
+
+    pub session: agent::sessions::Session,
+    pub start_time: Instant,
+    pub task_in_progress: bool,
+}
+
+impl AgentState {
+    pub fn new(db_connection: Connection) -> Self {
+        AgentState {
+            db_connection,
+
+            session: agent::sessions::Session::default(),
+            start_time: Instant::now(),
+            task_in_progress: false,
+        }
+    }
+}
 
 pub enum AgentCommand {
     StartSession {
@@ -24,45 +52,46 @@ pub enum AgentCommand {
     },
     RequestTaskList,
     RequestTaskState,
+    Quit,
 }
 
-pub fn start_agent(
-    command_rx: Receiver<AgentCommand>,
-    event_tx: Sender<ui::UIEvent>,
-    mut app_state: app::types::AppState,
-) {
+pub fn start_agent(command_rx: Receiver<AgentCommand>, event_tx: Sender<ui::UIEvent>) {
+    let db_connection = storage::sqlite::init_db().unwrap();
+    println!("SQLite databse initialized!");
+    let mut agent_state = agent::AgentState::new(db_connection);
+
     std::thread::spawn(move || {
         loop {
             while let Ok(event) = command_rx.try_recv() {
                 match event {
                     AgentCommand::StartSession { id } => {
-                        app_state.task_in_progress = true;
-                        app_state.session = agent::sessions::Session::default();
-                        app_state.session.s_task = id;
+                        agent_state.task_in_progress = true;
+                        agent_state.session = agent::sessions::Session::default();
+                        agent_state.session.s_task = id;
                     }
                     AgentCommand::EndSession { comment } => {
-                        app_state.task_in_progress = false;
+                        agent_state.task_in_progress = false;
                         let end_time = Instant::now();
-                        app_state.session.s_duration = (end_time - app_state.start_time).as_secs();
-                        app_state.session.s_comment = comment;
-                        agent::sessions::save_session(&app_state.db_connection, &app_state.session)
-                            .unwrap();
+                        agent_state.session.s_duration =
+                            (end_time - agent_state.start_time).as_secs();
+                        agent_state.session.s_comment = comment;
+                        agent::sessions::save_session(
+                            &agent_state.db_connection,
+                            &agent_state.session,
+                        )
+                        .unwrap();
                     }
                     AgentCommand::AddTask { task } => {
-                        agent::tasks::add_new_task(&app_state.db_connection, &task).unwrap();
+                        agent::tasks::add_new_task(&agent_state.db_connection, &task).unwrap();
                     }
                     AgentCommand::RequestTaskList => {
                         let task_list =
-                            agent::tasks::get_all_tasks(&app_state.db_connection).unwrap();
-                        event_tx
-                            .send(ui::UIEvent::TaskList { task_list })
-                            .unwrap();
+                            agent::tasks::get_all_tasks(&agent_state.db_connection).unwrap();
+                        event_tx.send(ui::UIEvent::TaskList { task_list }).unwrap();
                     }
                     AgentCommand::RequestTaskState => {
-                        let state = app_state.task_in_progress;
-                        event_tx
-                            .send(ui::UIEvent::ProgressState { state })
-                            .unwrap();
+                        let state = agent_state.task_in_progress;
+                        event_tx.send(ui::UIEvent::ProgressState { state }).unwrap();
                     }
                     _ => (),
                 }
