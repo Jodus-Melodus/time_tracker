@@ -5,7 +5,7 @@ use std::{
 
 use rusqlite::Connection;
 
-use crate::{agent, storage, ui};
+use crate::{agent, storage, ui, utils};
 
 pub mod input;
 pub mod sessions;
@@ -50,6 +50,7 @@ pub fn start_agent(command_rx: Receiver<AgentCommand>, event_tx: Sender<ui::UIEv
     let db_connection = storage::sqlite::init_db().unwrap();
     println!("SQLite databse initialized!");
     let mut agent_state = agent::AgentState::new(db_connection);
+    let stop_watch = utils::time::StopWatch::new();
 
     loop {
         while let Ok(event) = command_rx.try_recv() {
