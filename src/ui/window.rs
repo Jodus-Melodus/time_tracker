@@ -52,10 +52,10 @@ pub fn run_ui(
                 agent_tx: command_tx,
                 ui_rx: event_rx,
                 new_task: agent::tasks::Task::default(),
-                task_state: false,
                 session_comment: "".to_string(),
                 elapsed_time: Duration::ZERO,
                 settings,
+                active_task_id: -1,
                 tasks: Vec::new(),
                 show_new_task_dialog: false,
                 last_user_activity_time_stamp: chrono::Utc::now(),
@@ -70,10 +70,10 @@ struct MyApp {
     agent_tx: Sender<agent::AgentCommand>,
     ui_rx: Receiver<ui::UIEvent>,
     new_task: agent::tasks::Task,
-    task_state: bool,
     session_comment: String,
     elapsed_time: Duration,
     settings: Arc<config::settings::Settings>,
+    active_task_id: i64,
 
     tasks: Vec<agent::tasks::Task>,
     show_new_task_dialog: bool,
@@ -93,7 +93,6 @@ impl eframe::App for MyApp {
                         .send(agent::AgentCommand::UpdateStopWatch { running: true })
                         .unwrap();
                 }
-                ui::UIEvent::ProgressState { state } => self.task_state = state,
                 ui::UIEvent::ElapsedTime { elapsed } => self.elapsed_time = elapsed,
             }
 
@@ -187,8 +186,10 @@ impl eframe::App for MyApp {
                             ui.horizontal(|ui| {
                                 ui.vertical(|ui| {
                                     ui.label(&task.t_name).on_hover_text("Name");
-                                    ui.text_edit_multiline(&mut self.session_comment)
-                                        .on_hover_text("Comment");
+                                    if task.t_id == self.active_task_id {
+                                        ui.text_edit_multiline(&mut self.session_comment)
+                                            .on_hover_text("Comment");
+                                    }
                                 });
 
                                 ui.vertical(|ui| {
@@ -213,35 +214,31 @@ impl eframe::App for MyApp {
                                     });
 
                                     ui.with_layout(Layout::right_to_left(Align::Max), |ui| {
-                                        self.agent_tx
-                                            .send(agent::AgentCommand::RequestTaskState)
-                                            .unwrap();
-                                        match self.task_state {
-                                            true => {
-                                                if ui
-                                                    .button("Stop")
-                                                    .on_hover_cursor(CursorIcon::PointingHand)
-                                                    .clicked()
-                                                {
-                                                    self.agent_tx
-                                                        .send(agent::AgentCommand::EndSession {
-                                                            comment: self.session_comment.clone(),
-                                                        })
-                                                        .unwrap();
-                                                }
+                                        if self.active_task_id == task.t_id {
+                                            if ui
+                                                .button("Stop")
+                                                .on_hover_cursor(CursorIcon::PointingHand)
+                                                .clicked()
+                                            {
+                                                self.agent_tx
+                                                    .send(agent::AgentCommand::EndSession {
+                                                        comment: self.session_comment.clone(),
+                                                    })
+                                                    .unwrap();
+                                                self.active_task_id = -1;
                                             }
-                                            false => {
-                                                if ui
-                                                    .button("Start")
-                                                    .on_hover_cursor(CursorIcon::PointingHand)
-                                                    .clicked()
-                                                {
-                                                    self.agent_tx
-                                                        .send(agent::AgentCommand::StartSession {
-                                                            id: task.t_id,
-                                                        })
-                                                        .unwrap();
-                                                }
+                                        } else {
+                                            if ui
+                                                .button("Start")
+                                                .on_hover_cursor(CursorIcon::PointingHand)
+                                                .clicked()
+                                            {
+                                                self.agent_tx
+                                                    .send(agent::AgentCommand::StartSession {
+                                                        id: task.t_id,
+                                                    })
+                                                    .unwrap();
+                                                self.active_task_id = task.t_id;
                                             }
                                         }
                                     });

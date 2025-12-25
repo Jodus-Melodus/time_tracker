@@ -42,7 +42,6 @@ pub enum AgentCommand {
     EndSession { comment: String },
     AddTask { task: agent::tasks::Task },
     RequestTaskList,
-    RequestTaskState,
     Quit,
     UpdateStopWatch { running: bool },
     ElapsedTime,
@@ -84,10 +83,6 @@ pub fn start_agent(
                     let task_list =
                         agent::tasks::get_all_tasks(&agent_state.db_connection).unwrap();
                     event_tx.send(ui::UIEvent::TaskList { task_list }).unwrap();
-                }
-                AgentCommand::RequestTaskState => {
-                    let state = agent_state.task_in_progress;
-                    event_tx.send(ui::UIEvent::ProgressState { state }).unwrap();
                 }
                 AgentCommand::UpdateStopWatch { running } => {
                     if agent_state.task_in_progress {
