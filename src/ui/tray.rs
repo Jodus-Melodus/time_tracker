@@ -60,7 +60,9 @@ fn handle_events(
                 let _ = command_tx.send(agent::AgentCommand::Quit);
                 *quit = true;
             }
-            "ui" => {}
+            "ui" => {
+                let _ = command_tx.send(agent::AgentCommand::ShowUI);
+            }
             _ => eprintln!("Invalid menu item"),
         }
     }

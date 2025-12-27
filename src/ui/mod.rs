@@ -13,3 +13,8 @@ pub enum UIEvent {
     ElapsedTime { elapsed: Duration },
     Quit,
 }
+
+pub enum UIControl {
+    Show,
+    Quit,
+}

@@ -1,6 +1,5 @@
-use std::sync::{Arc, mpsc::Receiver};
+use std::sync::Arc;
 
-use crossbeam_channel::Sender;
 use rusqlite::Connection;
 
 use crate::{agent, config, storage, ui, utils};
@@ -39,15 +38,17 @@ pub enum AgentCommand {
     StartSession { id: i64 },
     EndSession { comment: String },
     AddTask { task: agent::tasks::Task },
+    UpdateStopWatch { running: bool },
     RequestTaskList,
     Quit,
-    UpdateStopWatch { running: bool },
     ElapsedTime,
+    ShowUI,
 }
 
 pub fn start_agent(
-    command_rx: Receiver<AgentCommand>,
-    event_tx: Sender<ui::UIEvent>,
+    command_rx: std::sync::mpsc::Receiver<AgentCommand>,
+    event_tx: crossbeam_channel::Sender<ui::UIEvent>,
+    ui_control_tx: std::sync::mpsc::Sender<ui::UIControl>,
     _settings: Arc<config::settings::Settings>,
 ) {
     let db_connection = storage::sqlite::init_db().unwrap();
@@ -98,7 +99,11 @@ pub fn start_agent(
                     .unwrap(),
                 AgentCommand::Quit => {
                     let _ = event_tx.send(ui::UIEvent::Quit);
+                    let _ = ui_control_tx.send(ui::UIControl::Quit);
                     running = false;
+                }
+                AgentCommand::ShowUI => {
+                    let _ = ui_control_tx.send(ui::UIControl::Show);
                 }
             }
         }
