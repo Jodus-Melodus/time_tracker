@@ -33,7 +33,7 @@ pub fn run_ui(
     event_rx: Receiver<ui::UIEvent>,
     settings: Arc<config::settings::Settings>,
 ) {
-    let icon = load_icon("icon.ico");
+    let icon = load_icon(&settings.icon_path);
     let mut options = NativeOptions {
         viewport: ViewportBuilder::default()
             .with_min_inner_size([250.0, 500.0])

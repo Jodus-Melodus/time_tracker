@@ -25,11 +25,11 @@ An activity tracker designed for the workplace, yet flexible enough to use anywh
 ### The diagram below shows the minimal schema required:
 
 <div style="display: flex; justify-content: center">
-    <img src="schema.svg" alt="database schema" width=500/>
+    <img src="media/schema.svg" alt="database schema" width=500/>
 </div>
 
 ### Full SQL schema
-[schema.sql](src/storage/schema.sql)
+[schema.sql](assets/schema.sql)
 
 ## Privacy
 

@@ -1,4 +1,7 @@
-use std::{sync::mpsc::Sender, time::Duration};
+use std::{
+    sync::{Arc, mpsc::Sender},
+    time::Duration,
+};
 
 use tray_icon::{
     Icon, TrayIcon, TrayIconBuilder,
@@ -7,10 +10,13 @@ use tray_icon::{
 #[cfg(target_os = "windows")]
 use winapi::um::winuser::{DispatchMessageW, MSG, PM_REMOVE, PeekMessageW, TranslateMessage};
 
-use crate::agent::{self};
+use crate::{
+    agent::{self},
+    config,
+};
 
-pub fn init_tray_icon() -> TrayIcon {
-    let icon = Icon::from_path("icon.ico", Some((128, 128))).unwrap();
+pub fn init_tray_icon(settings: Arc<config::settings::Settings>) -> TrayIcon {
+    let icon = Icon::from_path(&settings.icon_path, Some((128, 128))).unwrap();
     let tray_menu = build_tray_menu();
 
     let tray = TrayIconBuilder::new()

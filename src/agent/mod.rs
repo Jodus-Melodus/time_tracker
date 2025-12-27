@@ -49,9 +49,9 @@ pub fn start_agent(
     command_rx: std::sync::mpsc::Receiver<AgentCommand>,
     event_tx: crossbeam_channel::Sender<ui::UIEvent>,
     ui_control_tx: std::sync::mpsc::Sender<ui::UIControl>,
-    _settings: Arc<config::settings::Settings>,
+    settings: Arc<config::settings::Settings>,
 ) {
-    let db_connection = storage::sqlite::init_db().unwrap();
+    let db_connection = storage::sqlite::init_db(settings.clone()).unwrap();
     let mut agent_state = agent::AgentState::new(db_connection);
     let mut running = true;
 

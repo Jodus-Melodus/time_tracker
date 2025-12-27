@@ -6,8 +6,6 @@ use std::{
 use crate::{agent, config, ui};
 
 pub fn start() {
-    std::fs::create_dir_all("data").unwrap();
-
     let (command_tx, command_rx) = mpsc::channel();
     let (event_tx, event_rx) = crossbeam_channel::unbounded();
     let (ui_control_tx, ui_control_rx) = mpsc::channel();
@@ -25,10 +23,11 @@ pub fn start() {
         })
         .expect("Failed to spawn agent-worker thread");
 
+    let tray_settings = settings.clone();
     let tray_thread = std::thread::Builder::new()
         .name("tray-menu".to_string())
         .spawn(move || {
-            let _tray = ui::tray::init_tray_icon();
+            let _tray = ui::tray::init_tray_icon(tray_settings);
             ui::tray::start_tray_listener(tray_command)
         })
         .unwrap();
