@@ -23,11 +23,10 @@ pub fn start() {
         })
         .expect("Failed to spawn agent-worker thread");
 
-    let tray_settings = settings.clone();
     let tray_thread = std::thread::Builder::new()
         .name("tray-menu".to_string())
         .spawn(move || {
-            let _tray = ui::tray::init_tray_icon(tray_settings);
+            let _tray = ui::tray::init_tray_icon();
             ui::tray::start_tray_listener(tray_command)
         })
         .unwrap();

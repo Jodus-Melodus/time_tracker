@@ -6,34 +6,18 @@ use std::{
 use crossbeam_channel::Receiver;
 use eframe::{NativeOptions, egui};
 use egui::{
-    Align, Align2, CentralPanel, Color32, Context, CursorIcon, IconData, Layout, MenuBar, Order,
-    ScrollArea, Slider, TopBottomPanel, ViewportBuilder, ViewportCommand, Window,
-    panel::TopBottomSide,
+    Align, Align2, CentralPanel, Color32, Context, CursorIcon, Layout, MenuBar, Order, ScrollArea,
+    Slider, TopBottomPanel, ViewportBuilder, ViewportCommand, Window, panel::TopBottomSide,
 };
 
-use crate::{agent, config, ui, utils};
-
-fn load_icon(path: &str) -> IconData {
-    let (rgba, width, height) = {
-        let image = image::open(path)
-            .expect("Failed to open icon path")
-            .into_rgba8();
-        let (width, height) = image.dimensions();
-        (image.into_raw(), width, height)
-    };
-    IconData {
-        rgba,
-        width,
-        height,
-    }
-}
+use crate::{APP_ICON_BYTES, agent, config, ui, utils};
 
 pub fn run_ui(
     command_tx: Sender<agent::AgentCommand>,
     event_rx: Receiver<ui::UIEvent>,
     settings: Arc<config::settings::Settings>,
 ) {
-    let icon = load_icon(&settings.icon_path);
+    let icon = ui::load_icon_from_bytes(APP_ICON_BYTES);
     let mut options = NativeOptions {
         viewport: ViewportBuilder::default()
             .with_min_inner_size([250.0, 500.0])

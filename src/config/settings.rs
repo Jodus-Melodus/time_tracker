@@ -7,7 +7,6 @@ use uuid::Uuid;
 pub struct Settings {
     pub auto_sync_interval_seconds: u64,
     pub active_timeout_seconds: u64,
-    pub icon_path: String,
     pub schema_path: String,
     pub local_database_path: String,
     pub uid: String,
@@ -40,7 +39,6 @@ impl Default for Settings {
         Self {
             auto_sync_interval_seconds: 30,
             active_timeout_seconds: 15,
-            icon_path: "assets/icon.ico".into(),
             schema_path: "assets/schema.sql".into(),
             local_database_path: local_database_path().to_string_lossy().to_string(),
             uid: Uuid::new_v4().to_string(),
