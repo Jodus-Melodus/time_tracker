@@ -1,6 +1,7 @@
 use std::{fs, path::PathBuf};
 
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Settings {
@@ -9,6 +10,7 @@ pub struct Settings {
     pub icon_path: String,
     pub schema_path: String,
     pub local_database_path: String,
+    pub uid: String,
 }
 
 impl Settings {
@@ -41,6 +43,7 @@ impl Default for Settings {
             icon_path: "assets/icon.ico".into(),
             schema_path: "assets/schema.sql".into(),
             local_database_path: local_database_path().to_string_lossy().to_string(),
+            uid: Uuid::new_v4().to_string(),
         }
     }
 }

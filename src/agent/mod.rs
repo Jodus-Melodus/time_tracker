@@ -70,6 +70,7 @@ pub fn start_agent(
                     let elapsed_time = agent_state.stop_watch.elapsed();
                     agent_state.stop_watch.reset();
 
+                    agent_state.session.s_user = settings.uid.clone();
                     agent_state.session.s_comment = comment;
                     agent_state.session.s_duration = elapsed_time.as_secs();
                     agent::sessions::save_session(&agent_state.db_connection, &agent_state.session)

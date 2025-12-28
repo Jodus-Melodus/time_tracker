@@ -25,6 +25,7 @@ crossbeam-channel = "0.5"
 winapi = "0.3"
 tray-icon = "0.21"
 image = "0.25"
+uuid = { version = "1.19.0", features = ["v4"] }
 
 # The profile that 'dist' will build with
 [profile.dist]

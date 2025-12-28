@@ -4,7 +4,7 @@ use rusqlite::{Connection, Result};
 pub struct Session {
     pub _s_id: i64,
     pub s_task: i64,
-    pub s_user: i64,
+    pub s_user: String,
     pub s_duration: u64,
     pub s_comment: String,
 }
@@ -14,7 +14,7 @@ impl Default for Session {
         Session {
             _s_id: 1,
             s_task: 1,
-            s_user: 1,
+            s_user: "".into(),
             s_duration: 0,
             s_comment: "".to_string(),
         }
@@ -29,7 +29,7 @@ pub fn save_session(conn: &Connection, session: &Session) -> Result<usize> {
             (?1, ?2, ?3, ?4)",
         (
             session.s_task,
-            session.s_user,
+            session.s_user.clone(),
             session.s_duration,
             &session.s_comment,
         ),
