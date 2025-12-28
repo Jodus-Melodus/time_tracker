@@ -30,5 +30,4 @@
 
 ## 🐞 Bugs
 
-- Comments are not resetting.
-- UI layering incorrect. 
+- UI layering incorrect.

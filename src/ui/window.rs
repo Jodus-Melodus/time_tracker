@@ -250,6 +250,7 @@ impl MyApp {
                                                     })
                                                     .unwrap();
                                                 self.active_task_id = -1;
+                                                self.session_comment = "".into();
                                             }
                                         } else {
                                             if ui
