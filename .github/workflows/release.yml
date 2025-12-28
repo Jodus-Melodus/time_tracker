@@ -136,6 +136,11 @@ jobs:
           pattern: artifacts-*
           path: target/distrib/
           merge-multiple: true
+              - name: Install GTK3 & build tooling (Ubuntu)
+        if: ${{ !matrix.container && contains(matrix.runner, 'ubuntu') }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libatk1.0-dev pkg-config
       - name: Install dependencies
         run: |
           ${{ matrix.packages_install }}
