@@ -1,6 +1,6 @@
 # Time Tracker
 
-> Track your work automatically, without getting in your way
+[![Release](https://github.com/JodusMelodus/time_tracker/actions/workflows/release.yml/badge.svg)](https://github.com/JodusMelodus/time_tracker/actions/workflows/release.yml)
 
 An activity tracker designed for the workplace, yet flexible enough to use anywhere.
 
