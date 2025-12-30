@@ -28,7 +28,6 @@
     - Improve layout and organization
 - Improve accessibility
 - Check other cargo-dist properties
-- Set App icon
 
 ## 🐞 Bugs
 

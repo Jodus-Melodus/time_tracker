@@ -11,3 +11,7 @@ ci = "github"
 installers = ["msi"]
 # Target platforms to build apps for (Rust target-triple syntax)
 targets = ["x86_64-pc-windows-msvc"]
+
+[dist.windows]
+installer = "wix"
+icon = "assets/icon.ico"

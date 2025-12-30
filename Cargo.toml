@@ -1,6 +1,6 @@
 [package]
 name = "time_tracker"
-version = "0.1.0-alpha.3"
+version = "0.1.0-alpha.4"
 edition = "2024"
 authors = ["JodusMelodus"]
 description = "Lightweight background Time Tracker"
@@ -25,9 +25,12 @@ crossbeam-channel = "0.5"
 winapi = "0.3"
 tray-icon = "0.21"
 image = "0.25"
-uuid = { version = "1.19.0", features = ["v4"] }
+uuid = { version = "1.19", features = ["v4"] }
 
 # The profile that 'dist' will build with
 [profile.dist]
 inherits = "release"
 lto = "thin"
+
+[build-dependencies]
+embed-resource = "2"
