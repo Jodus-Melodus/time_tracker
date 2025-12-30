@@ -251,30 +251,25 @@ impl MyApp {
 
                                 ui.vertical(|ui| {
                                     ui.with_layout(Layout::right_to_left(Align::Min), |ui| {
-                                        match task.t_priority {
-                                            0 => ui.colored_label(
-                                                Color32::DARK_GREEN,
-                                                agent::tasks::PRIORITY_LEVELS[task.t_priority],
-                                            ),
-                                            1 => ui.colored_label(
-                                                Color32::YELLOW,
-                                                agent::tasks::PRIORITY_LEVELS[task.t_priority],
-                                            ),
-                                            2 => ui.colored_label(
-                                                Color32::RED,
-                                                agent::tasks::PRIORITY_LEVELS[task.t_priority],
-                                            ),
-                                            _ => ui.label(
-                                                agent::tasks::PRIORITY_LEVELS[task.t_priority],
-                                            ),
-                                        };
+                                        ui.colored_label(
+                                            match task.t_priority {
+                                                0 => Color32::DARK_GREEN,
+                                                1 => Color32::YELLOW,
+                                                2 => Color32::DARK_RED,
+                                                _ => Color32::DARK_BLUE,
+                                            },
+                                            "⏺",
+                                        )
+                                        .on_hover_cursor(CursorIcon::Default)
+                                        .on_hover_text("Priority")
                                     });
 
                                     ui.with_layout(Layout::right_to_left(Align::Max), |ui| {
                                         if self.active_task_id == task.t_id {
                                             if ui
-                                                .button("Stop")
+                                                .button("⏸")
                                                 .on_hover_cursor(CursorIcon::PointingHand)
+                                                .on_hover_text("Stop")
                                                 .clicked()
                                             {
                                                 if let Err(e) = self.agent_tx.send(
@@ -293,8 +288,9 @@ impl MyApp {
                                             }
                                         } else {
                                             if ui
-                                                .button("Start")
+                                                .button("▶")
                                                 .on_hover_cursor(CursorIcon::PointingHand)
+                                                .on_hover_text("Start")
                                                 .clicked()
                                             {
                                                 if let Err(e) = self.agent_tx.send(
@@ -328,15 +324,17 @@ impl MyApp {
                     match self.user_state {
                         ui::viewmodels::UserState::Active => ui
                             .colored_label(Color32::DARK_GREEN, "⏺")
-                            .on_hover_cursor(CursorIcon::Default),
+                            .on_hover_cursor(CursorIcon::Default)
+                            .on_hover_text("Active"),
                         ui::viewmodels::UserState::Idle => ui
                             .colored_label(Color32::DARK_GRAY, "⏺")
-                            .on_hover_cursor(CursorIcon::Default),
+                            .on_hover_cursor(CursorIcon::Default)
+                            .on_hover_text("Idle"),
                     };
                 });
                 ui.with_layout(Layout::right_to_left(egui::Align::Max), |ui| {
                     if ui
-                        .button("🔃")
+                        .button("⟳")
                         .on_hover_cursor(CursorIcon::PointingHand)
                         .on_hover_text("Sync")
                         .clicked()
