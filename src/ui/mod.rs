@@ -5,6 +5,7 @@ use egui::IconData;
 
 use crate::agent;
 
+pub mod dialog;
 pub mod tray;
 pub mod window;
 

@@ -27,7 +27,6 @@
     - Make the interface more user-friendly
     - Improve layout and organization
 - Improve accessibility
-- Add info/error messages
 
 ## 🐞 Bugs
 

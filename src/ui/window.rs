@@ -38,6 +38,7 @@ pub fn run_ui(
                 elapsed_time: Duration::ZERO,
                 settings,
                 active_task_id: -1,
+                dialog_info: ui::dialog::DialogInfo::default(),
                 tasks: Vec::new(),
                 show_new_task_dialog: false,
                 last_user_activity_time_stamp: chrono::Utc::now(),
@@ -56,6 +57,7 @@ struct MyApp {
     elapsed_time: Duration,
     settings: Arc<config::settings::Settings>,
     active_task_id: i64,
+    dialog_info: ui::dialog::DialogInfo,
 
     tasks: Vec<agent::tasks::Task>,
     show_new_task_dialog: bool,
@@ -71,9 +73,16 @@ impl eframe::App for MyApp {
                 ui::UIEvent::UserActivity { time_stamp } => {
                     self.user_state = agent::UserState::Active;
                     self.last_user_activity_time_stamp = time_stamp;
-                    let _ = self
+                    if let Err(e) = self
                         .agent_tx
-                        .send(agent::AgentCommand::UpdateStopWatch { running: true });
+                        .send(agent::AgentCommand::UpdateStopWatch { running: true })
+                    {
+                        self.dialog_info = ui::dialog::DialogInfo {
+                            title: "Error",
+                            message: format!("{}", e),
+                            shown: false,
+                        }
+                    }
                 }
                 ui::UIEvent::ElapsedTime { elapsed } => self.elapsed_time = elapsed,
                 ui::UIEvent::Quit => ctx.send_viewport_cmd(ViewportCommand::Close),
@@ -82,7 +91,13 @@ impl eframe::App for MyApp {
             ctx.request_repaint();
         }
 
-        let _ = self.agent_tx.send(agent::AgentCommand::RequestTaskList);
+        if let Err(e) = self.agent_tx.send(agent::AgentCommand::RequestTaskList) {
+            self.dialog_info = ui::dialog::DialogInfo {
+                title: "Error",
+                message: format!("{}", e),
+                shown: false,
+            }
+        }
 
         self.determine_user_state(ctx);
 
@@ -100,10 +115,36 @@ impl eframe::App for MyApp {
         } else {
             self.new_task = agent::tasks::Task::default();
         }
+
+        if !self.dialog_info.shown {
+            self.show_dialog(ctx);
+        }
     }
 }
 
 impl MyApp {
+    fn show_dialog(&mut self, ctx: &Context) {
+        Window::new(self.dialog_info.title)
+            .collapsible(false)
+            .fixed_size([300.0, 50.0])
+            .resizable(false)
+            .anchor(Align2::CENTER_CENTER, [0.0, 0.0])
+            .order(Order::Foreground)
+            .show(ctx, |ui| {
+                ui.label(format!("{}", self.dialog_info.message));
+
+                ui.with_layout(Layout::right_to_left(Align::Max), |ui| {
+                    if ui
+                        .button("OK")
+                        .on_hover_cursor(CursorIcon::PointingHand)
+                        .clicked()
+                    {
+                        self.dialog_info.shown = true;
+                    }
+                });
+            });
+    }
+
     fn new_task_dialog(&mut self, ctx: &Context) {
         Window::new("New Task")
             .collapsible(false)
@@ -142,11 +183,21 @@ impl MyApp {
                             .on_hover_cursor(CursorIcon::PointingHand)
                             .clicked()
                         {
-                            let _ = self.agent_tx.send(agent::AgentCommand::AddTask {
+                            if let Err(e) = self.agent_tx.send(agent::AgentCommand::AddTask {
                                 task: self.new_task.clone(),
-                            });
+                            }) {
+                                self.dialog_info = ui::dialog::DialogInfo {
+                                    title: "Error",
+                                    message: format!("{}", e),
+                                    shown: false,
+                                }
+                            }
                             self.show_new_task_dialog = false;
-                            let _ = self.agent_tx.send(agent::AgentCommand::RequestTaskList);
+                            self.dialog_info = ui::dialog::DialogInfo {
+                                title: "Information",
+                                message: format!("{}", "Added new task successfully!"),
+                                shown: false,
+                            };
                         }
                     });
                 });
@@ -226,11 +277,17 @@ impl MyApp {
                                                 .on_hover_cursor(CursorIcon::PointingHand)
                                                 .clicked()
                                             {
-                                                let _ = self.agent_tx.send(
+                                                if let Err(e) = self.agent_tx.send(
                                                     agent::AgentCommand::EndSession {
                                                         comment: self.session_comment.clone(),
                                                     },
-                                                );
+                                                ) {
+                                                    self.dialog_info = ui::dialog::DialogInfo {
+                                                        title: "Error",
+                                                        message: format!("{}", e),
+                                                        shown: false,
+                                                    }
+                                                }
                                                 self.active_task_id = -1;
                                                 self.session_comment = "".into();
                                             }
@@ -240,11 +297,17 @@ impl MyApp {
                                                 .on_hover_cursor(CursorIcon::PointingHand)
                                                 .clicked()
                                             {
-                                                let _ = self.agent_tx.send(
+                                                if let Err(e) = self.agent_tx.send(
                                                     agent::AgentCommand::StartSession {
                                                         id: task.t_id,
                                                     },
-                                                );
+                                                ) {
+                                                    self.dialog_info = ui::dialog::DialogInfo {
+                                                        title: "Error",
+                                                        message: format!("{}", e),
+                                                        shown: false,
+                                                    }
+                                                }
                                                 self.active_task_id = task.t_id;
                                             }
                                         }
@@ -282,7 +345,13 @@ impl MyApp {
     }
 
     fn determine_user_state(&mut self, ctx: &Context) {
-        let _ = self.agent_tx.send(agent::AgentCommand::ElapsedTime);
+        if let Err(e) = self.agent_tx.send(agent::AgentCommand::ElapsedTime) {
+            self.dialog_info = ui::dialog::DialogInfo {
+                title: "Error",
+                message: format!("{}", e),
+                shown: false,
+            }
+        }
 
         let idle_after = self.last_user_activity_time_stamp
             + chrono::Duration::seconds(self.settings.active_timeout_seconds.try_into().unwrap());
@@ -291,9 +360,16 @@ impl MyApp {
         if self.user_state == agent::UserState::Active {
             if now >= idle_after {
                 self.user_state = agent::UserState::Idle;
-                let _ = self
+                if let Err(e) = self
                     .agent_tx
-                    .send(agent::AgentCommand::UpdateStopWatch { running: false });
+                    .send(agent::AgentCommand::UpdateStopWatch { running: false })
+                {
+                    self.dialog_info = ui::dialog::DialogInfo {
+                        title: "Error",
+                        message: format!("{}", e),
+                        shown: false,
+                    }
+                }
                 ctx.request_repaint();
             } else {
                 let remaining = idle_after - now;
