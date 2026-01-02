@@ -1,9 +1,8 @@
 use std::{
-    sync::{Arc, mpsc::Sender},
+    sync::{Arc, mpsc},
     time::Duration,
 };
 
-use crossbeam_channel::Receiver;
 use eframe::{NativeOptions, egui};
 use egui::{
     Align, Align2, CentralPanel, Color32, Context, CursorIcon, Layout, MenuBar, Order, ScrollArea,
@@ -13,8 +12,8 @@ use egui::{
 use crate::{APP_ICON_BYTES, agent, config, ui};
 
 pub fn run_ui(
-    command_tx: Sender<agent::AgentCommand>,
-    event_rx: Receiver<ui::viewmodels::UIEvent>,
+    command_tx: mpsc::Sender<agent::AgentCommand>,
+    window_rx: crossbeam_channel::Receiver<ui::viewmodels::UIEvent>,
     settings: Arc<config::Settings>,
 ) {
     let icon = ui::utils::load_icon_from_bytes(APP_ICON_BYTES);
@@ -31,17 +30,16 @@ pub fn run_ui(
         options,
         Box::new(|_cc| {
             Ok(Box::new(MyApp {
-                agent_tx: command_tx,
-                ui_rx: event_rx,
-                new_task: agent::tasks::Task::default(),
+                command_tx,
+                window_rx,
+                new_task: agent::Task::default(),
                 session_comment: "".to_string(),
                 elapsed_time: Duration::ZERO,
-                settings,
+                _settings: settings,
                 active_task_id: -1,
                 dialog_info: ui::DialogInfo::default(),
                 tasks: Vec::new(),
                 show_new_task_dialog: false,
-                last_user_activity_time_stamp: chrono::Utc::now(),
                 user_state: ui::viewmodels::UserState::Active,
             }))
         }),
@@ -50,56 +48,55 @@ pub fn run_ui(
 }
 
 struct MyApp {
-    agent_tx: Sender<agent::AgentCommand>,
-    ui_rx: Receiver<ui::viewmodels::UIEvent>,
+    command_tx: mpsc::Sender<agent::AgentCommand>,
+    window_rx: crossbeam_channel::Receiver<ui::viewmodels::UIEvent>,
     new_task: agent::tasks::Task,
     session_comment: String,
     elapsed_time: Duration,
-    settings: Arc<config::Settings>,
+    _settings: Arc<config::Settings>,
     active_task_id: i64,
     dialog_info: ui::DialogInfo,
 
     tasks: Vec<agent::tasks::Task>,
     show_new_task_dialog: bool,
     user_state: ui::viewmodels::UserState,
-    last_user_activity_time_stamp: chrono::DateTime<chrono::Utc>,
 }
 
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
-        while let Ok(event) = self.ui_rx.try_recv() {
+        while let Ok(event) = self.window_rx.try_recv() {
             match event {
                 ui::viewmodels::UIEvent::TaskList { task_list } => self.tasks = task_list,
-                ui::viewmodels::UIEvent::UserActivity { time_stamp } => {
-                    self.user_state = ui::viewmodels::UserState::Active;
-                    self.last_user_activity_time_stamp = time_stamp;
-                    if let Err(e) = self
-                        .agent_tx
-                        .send(agent::AgentCommand::UpdateStopWatch { running: true })
-                    {
-                        self.dialog_info = ui::DialogInfo {
-                            title: "Error",
-                            message: format!("{}", e),
-                            shown: false,
-                        }
-                    }
-                }
                 ui::viewmodels::UIEvent::ElapsedTime { elapsed } => self.elapsed_time = elapsed,
                 ui::viewmodels::UIEvent::Quit => ctx.send_viewport_cmd(ViewportCommand::Close),
+                ui::UIEvent::Repaint { time_out } => {
+                    ctx.request_repaint_after(Duration::from_secs(time_out));
+                }
+                ui::UIEvent::UserState { state } => self.user_state = state,
             }
 
             ctx.request_repaint();
         }
 
-        if let Err(e) = self.agent_tx.send(agent::AgentCommand::RequestTaskList) {
-            self.dialog_info = ui::DialogInfo {
-                title: "Error",
-                message: format!("{}", e),
-                shown: false,
+        if self.tasks.is_empty() {
+            if let Err(e) = self.command_tx.send(agent::AgentCommand::RequestTaskList) {
+                self.dialog_info = ui::DialogInfo {
+                    title: "Error",
+                    message: format!("{}", e),
+                    shown: false,
+                }
             }
         }
 
-        self.determine_user_state(ctx);
+        if self.active_task_id != -1 {
+            if let Err(e) = self.command_tx.send(agent::AgentCommand::RequestElapsedTime) {
+                self.dialog_info = ui::DialogInfo {
+                    title: "Error",
+                    message: format!("{}", e),
+                    shown: false,
+                }
+            }
+        }
 
         // Menu bar
         self.menu_bar(ctx);
@@ -183,7 +180,7 @@ impl MyApp {
                             .on_hover_cursor(CursorIcon::PointingHand)
                             .clicked()
                         {
-                            if let Err(e) = self.agent_tx.send(agent::AgentCommand::AddTask {
+                            if let Err(e) = self.command_tx.send(agent::AgentCommand::AddTask {
                                 task: self.new_task.clone(),
                             }) {
                                 self.dialog_info = ui::DialogInfo {
@@ -272,7 +269,7 @@ impl MyApp {
                                                 .on_hover_text("Stop")
                                                 .clicked()
                                             {
-                                                if let Err(e) = self.agent_tx.send(
+                                                if let Err(e) = self.command_tx.send(
                                                     agent::AgentCommand::EndSession {
                                                         comment: self.session_comment.clone(),
                                                     },
@@ -293,7 +290,7 @@ impl MyApp {
                                                 .on_hover_text("Start")
                                                 .clicked()
                                             {
-                                                if let Err(e) = self.agent_tx.send(
+                                                if let Err(e) = self.command_tx.send(
                                                     agent::AgentCommand::StartSession {
                                                         id: task.t_id,
                                                     },
@@ -344,41 +341,5 @@ impl MyApp {
                 });
             });
         });
-    }
-
-    fn determine_user_state(&mut self, ctx: &Context) {
-        if let Err(e) = self.agent_tx.send(agent::AgentCommand::ElapsedTime) {
-            self.dialog_info = ui::DialogInfo {
-                title: "Error",
-                message: format!("{}", e),
-                shown: false,
-            }
-        }
-
-        let idle_after = self.last_user_activity_time_stamp
-            + chrono::Duration::seconds(self.settings.active_timeout_seconds.try_into().unwrap());
-        let now = chrono::Utc::now();
-
-        if self.user_state == ui::viewmodels::UserState::Active {
-            if now >= idle_after {
-                self.user_state = ui::viewmodels::UserState::Idle;
-                if let Err(e) = self
-                    .agent_tx
-                    .send(agent::AgentCommand::UpdateStopWatch { running: false })
-                {
-                    self.dialog_info = ui::DialogInfo {
-                        title: "Error",
-                        message: format!("{}", e),
-                        shown: false,
-                    }
-                }
-                ctx.request_repaint();
-            } else {
-                let remaining = idle_after - now;
-                ctx.request_repaint_after(std::time::Duration::from_secs(
-                    remaining.num_seconds() as u64
-                ));
-            }
-        }
     }
 }
