@@ -27,7 +27,6 @@
     - Make the interface more user-friendly
     - Improve layout and organization
 - Improve accessibility
-- Check other cargo-dist properties
 
 ## 🐞 Bugs
 
